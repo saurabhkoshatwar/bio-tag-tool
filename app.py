@@ -197,7 +197,17 @@ with st.sidebar:
 if st.session_state.current_file:
     st.sidebar.title("Questions")
     for idx, question_data in enumerate(st.session_state.uploaded_files[st.session_state.current_file]):
-        if st.sidebar.button(f"Q{idx+1}: {question_data['question'][:30]}...", key=f"q_{idx}"):
+        # Add a unique key for each question button
+        button_key = f"q_{st.session_state.current_file}_{idx}"
+        # Use a different style for the selected question
+        button_style = "background-color: #e6f3ff;" if idx == st.session_state.current_question else ""
+        if st.sidebar.button(
+            f"Q{idx+1}: {question_data['question'][:30]}...",
+            key=button_key,
+            help=question_data['question'],
+            use_container_width=True,
+            type="primary" if idx == st.session_state.current_question else "secondary"
+        ):
             st.session_state.current_question = idx
 
 # Main content area
