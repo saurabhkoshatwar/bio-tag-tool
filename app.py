@@ -308,16 +308,17 @@ if st.session_state.current_file and st.session_state.current_question is not No
             st.rerun()
     
     # Matrix content
-    for word in words:
+    for word_idx, word in enumerate(words):
         cols = st.columns(len(entity_list) + 1)
         cols[0].write(word)
         for i, entity in enumerate(entity_list):
             current_tag = get_tag_for_word(word, entity, st.session_state.current_file, question)
+            unique_key = f"radio_{word}_{entity}_{st.session_state.current_file}_{question}_{word_idx}_{i}"
             selected = cols[i+1].radio(
-                f"{word}_{entity}",
+                unique_key,
                 options=['O', 'B', 'I'],
                 index=['O', 'B', 'I'].index(current_tag),
-                key=f"radio_{word}_{entity}",
+                key=unique_key,
                 label_visibility="collapsed"
             )
             if selected:
