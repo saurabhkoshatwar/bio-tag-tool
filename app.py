@@ -56,6 +56,10 @@ def parse_bio_tags(tags_str):
     
     return result
 
+def get_entities(entities_str):
+    """Parse comma-separated entities string into a list."""
+    return [e.strip() for e in entities_str.split(',')]
+
 def process_uploaded_file(uploaded_file):
     df = pd.read_csv(uploaded_file)
     file_name = uploaded_file.name
@@ -70,6 +74,9 @@ def process_uploaded_file(uploaded_file):
     # Process each record
     for record in records:
         question = record['question']
+        # Convert pipe-separated entities to comma-separated if needed
+        if '|' in record['entities']:
+            record['entities'] = record['entities'].replace('|', ',')
         entities = record['entities']
         words = get_question_words(question)
         entity_list = get_entities(entities)
@@ -111,9 +118,6 @@ def process_uploaded_file(uploaded_file):
 
 def get_question_words(question):
     return question.split()
-
-def get_entities(entities_str):
-    return [e.strip() for e in entities_str.split('|')]
 
 def create_tagging_matrix(question, entities):
     words = get_question_words(question)
@@ -187,7 +191,7 @@ def export_file_results(file_name):
         tags = generate_bio_tags(question, entities, file_name)
         all_results.append({
             'question': question,
-            'entities': entities,
+            'entities': entities,  # This will now be comma-separated
             'tags': tags
         })
     
@@ -199,7 +203,7 @@ def export_file_results(file_name):
 
 def update_entities(file_name, question_idx, new_entities):
     # Update the entities in the uploaded files
-    st.session_state.uploaded_files[file_name][question_idx]['entities'] = '|'.join(new_entities)
+    st.session_state.uploaded_files[file_name][question_idx]['entities'] = ','.join(new_entities)
     
     # Update the tagging data to reflect entity changes
     question = st.session_state.uploaded_files[file_name][question_idx]['question']

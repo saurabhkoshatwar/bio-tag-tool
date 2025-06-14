@@ -1,0 +1,3 @@
+question,entities,tags
+I want to by iphone 16 and macbook pro,"iphone,macbook",O O O O B-iphone I-iphone O B-macbook I-macbook
+what are features of iphone 16 e and airpods max pro,"iphone,airpod",O B-iphone I-iphone O O O O O O O O
