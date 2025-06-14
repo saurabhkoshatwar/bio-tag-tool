@@ -34,12 +34,78 @@ def save_uploaded_files():
     with open(data_file, 'w') as f:
         json.dump(st.session_state.uploaded_files, f)
 
+def parse_bio_tags(tags_str):
+    """Parse BIO tags string into a dictionary of word-entity-tag mappings."""
+    if not tags_str or pd.isna(tags_str):
+        return {}
+    
+    tags = tags_str.split()
+    result = {}
+    
+    current_entity = None
+    for i, tag in enumerate(tags):
+        if tag.startswith('B-'):
+            current_entity = tag[2:]
+            result[i] = {'entity': current_entity, 'tag': 'B'}
+        elif tag.startswith('I-'):
+            current_entity = tag[2:]
+            result[i] = {'entity': current_entity, 'tag': 'I'}
+        else:
+            current_entity = None
+            result[i] = {'entity': None, 'tag': 'O'}
+    
+    return result
+
 def process_uploaded_file(uploaded_file):
     df = pd.read_csv(uploaded_file)
     file_name = uploaded_file.name
-    st.session_state.uploaded_files[file_name] = df.to_dict('records')
+    
+    # Convert DataFrame to records
+    records = df.to_dict('records')
+    
+    # Initialize tagging data for this file
     if file_name not in st.session_state.tagging_data:
         st.session_state.tagging_data[file_name] = {}
+    
+    # Process each record
+    for record in records:
+        question = record['question']
+        entities = record['entities']
+        words = get_question_words(question)
+        entity_list = get_entities(entities)
+        
+        # Initialize question data in tagging_data
+        if question not in st.session_state.tagging_data[file_name]:
+            st.session_state.tagging_data[file_name][question] = {}
+        
+        # If tags column exists, parse it
+        if 'tags' in record and record['tags']:
+            parsed_tags = parse_bio_tags(record['tags'])
+            
+            # Initialize word data
+            for i, word in enumerate(words):
+                if word not in st.session_state.tagging_data[file_name][question]:
+                    st.session_state.tagging_data[file_name][question][word] = {}
+                
+                # If we have parsed tags for this word
+                if i in parsed_tags:
+                    tag_info = parsed_tags[i]
+                    if tag_info['entity']:
+                        # Set the tag for the specific entity
+                        st.session_state.tagging_data[file_name][question][word][tag_info['entity']] = tag_info['tag']
+                    else:
+                        # Set 'O' tag for all entities
+                        for entity in entity_list:
+                            st.session_state.tagging_data[file_name][question][word][entity] = 'O'
+                else:
+                    # If no tag found, set 'O' for all entities
+                    for entity in entity_list:
+                        st.session_state.tagging_data[file_name][question][word][entity] = 'O'
+    
+    # Save the records to uploaded_files
+    st.session_state.uploaded_files[file_name] = records
+    
+    # Save both data structures
     save_tagging_data()
     save_uploaded_files()
 
