@@ -266,10 +266,6 @@ with st.sidebar:
 if st.session_state.current_file:
     st.header(f"Questions in {st.session_state.current_file}")
     
-    # Initialize expanded state for questions if not exists
-    if 'expanded_questions' not in st.session_state:
-        st.session_state.expanded_questions = set()
-    
     # Create a container for the scrollable content
     questions_container = st.container()
     
@@ -278,134 +274,100 @@ if st.session_state.current_file:
             question = question_data['question']
             entities = question_data['entities']
             words, entity_list = create_tagging_matrix(question, entities)
-            
-            # Create a container for each question
-            question_container = st.container()
-            with question_container:
-                # Question header with expand/collapse
-                col1, col2 = st.columns([0.9, 0.1])
-                with col1:
-                    st.subheader(f"Question {idx+1}")
-                with col2:
-                    if st.button("⚙️", key=f"expand_{idx}"):
-                        if idx in st.session_state.expanded_questions:
-                            st.session_state.expanded_questions.remove(idx)
-                        else:
-                            st.session_state.expanded_questions.add(idx)
-                        st.rerun()
-                
-                # Always show the tagged spans visualization
-                tagged_spans = get_tagged_spans(words, entity_list, st.session_state.current_file, question)
-                
-                # Create the visualization as a table
-                html_content = "<table style='width: 100%; border-collapse: collapse;'>"
-                
-                # First row: Words
-                html_content += "<tr>"
-                current_pos = 0
-                for span in tagged_spans:
-                    # Add words before the span
-                    while current_pos < span['start']:
-                        html_content += f"<td style='padding: 5px; border: 1px solid #ddd;'>{words[current_pos]}</td>"
-                        current_pos += 1
-                    
-                    # Add the tagged span
-                    span_text = " ".join(span['words'])
-                    html_content += f"<td style='padding: 5px; border: 1px solid #ddd; text-decoration: underline;' colspan='{len(span['words'])}'>{span_text}</td>"
-                    current_pos += len(span['words'])
-                
-                # Add remaining words
-                while current_pos < len(words):
+
+            # Question header
+            st.subheader(f"Question {idx+1}")
+
+            # Always show the tagged spans visualization
+            tagged_spans = get_tagged_spans(words, entity_list, st.session_state.current_file, question)
+            html_content = "<table style='width: 100%; border-collapse: collapse;'>"
+            # First row: Words
+            html_content += "<tr>"
+            current_pos = 0
+            for span in tagged_spans:
+                while current_pos < span['start']:
                     html_content += f"<td style='padding: 5px; border: 1px solid #ddd;'>{words[current_pos]}</td>"
                     current_pos += 1
-                html_content += "</tr>"
-                
-                # Second row: Entity names
-                html_content += "<tr>"
-                current_pos = 0
-                for span in tagged_spans:
-                    # Add empty cells before the span
-                    while current_pos < span['start']:
-                        html_content += "<td style='padding: 5px; border: 1px solid #ddd;'></td>"
-                        current_pos += 1
-                    
-                    # Add the entity name
-                    html_content += f"<td style='padding: 5px; border: 1px solid #ddd;' colspan='{len(span['words'])}'>{span['entity']}</td>"
-                    current_pos += len(span['words'])
-                
-                # Add remaining empty cells
-                while current_pos < len(words):
+                span_text = " ".join(span['words'])
+                html_content += f"<td style='padding: 5px; border: 1px solid #ddd; text-decoration: underline;' colspan='{len(span['words'])}'>{span_text}</td>"
+                current_pos += len(span['words'])
+            while current_pos < len(words):
+                html_content += f"<td style='padding: 5px; border: 1px solid #ddd;'>{words[current_pos]}</td>"
+                current_pos += 1
+            html_content += "</tr>"
+            # Second row: Entity names
+            html_content += "<tr>"
+            current_pos = 0
+            for span in tagged_spans:
+                while current_pos < span['start']:
                     html_content += "<td style='padding: 5px; border: 1px solid #ddd;'></td>"
                     current_pos += 1
-                html_content += "</tr>"
-                
-                html_content += "</table>"
-                st.markdown(html_content, unsafe_allow_html=True)
-                
-                # Show tagging controls only when expanded
-                if idx in st.session_state.expanded_questions:
-                    st.markdown("---")
-                    st.subheader("Tagging Controls")
-                    
-                    # Create columns for the matrix
-                    cols = st.columns(len(entity_list) + 2)  # +2 for word column and add button
-                    
-                    # First row: Controls
-                    cols[0].write("")  # Empty space for word column
-                    for i, entity in enumerate(entity_list):
-                        col1, col2 = cols[i+1].columns([1, 1])
-                        with col1:
-                            if st.button("✏️", key=f"edit_{idx}_{i}"):
-                                st.session_state.editing_entity = i
-                                st.rerun()
-                        with col2:
-                            if st.button("❌", key=f"delete_{idx}_{i}"):
-                                entity_list.remove(entity)
-                                update_entities(st.session_state.current_file, idx, entity_list)
-                                st.rerun()
-                    
-                    # Add new entity button in the last column
-                    with cols[-1]:
-                        if st.button("➕", key=f"add_entity_{idx}"):
-                            st.session_state.show_new_entity_input = idx
-                    
-                    # Second row: Entity names
-                    cols[0].write("Word")
-                    for i, entity in enumerate(entity_list):
-                        if st.session_state.editing_entity == i:
-                            new_name = cols[i+1].text_input("", value=entity, key=f"edit_entity_{idx}_{i}")
-                            if new_name != entity:
-                                entity_list[i] = new_name
-                                update_entities(st.session_state.current_file, idx, entity_list)
-                                st.session_state.editing_entity = None
-                                st.rerun()
-                        else:
-                            cols[i+1].write(entity)
-                    
-                    # New entity input row
-                    if st.session_state.get('show_new_entity_input') == idx:
-                        new_entity = st.text_input("Enter new entity name:", key=f"new_entity_input_{idx}")
-                        if new_entity and new_entity not in entity_list:
-                            entity_list.append(new_entity)
-                            update_entities(st.session_state.current_file, idx, entity_list)
-                            st.session_state.show_new_entity_input = None
+                html_content += f"<td style='padding: 5px; border: 1px solid #ddd;' colspan='{len(span['words'])}'>{span['entity']}</td>"
+                current_pos += len(span['words'])
+            while current_pos < len(words):
+                html_content += "<td style='padding: 5px; border: 1px solid #ddd;'></td>"
+                current_pos += 1
+            html_content += "</tr>"
+            html_content += "</table>"
+            st.markdown(html_content, unsafe_allow_html=True)
+
+            # Tagging controls inside expander
+            with st.expander("Tagging Controls"):
+                st.markdown("---")
+                st.subheader("Tagging Controls")
+                # Create columns for the matrix
+                cols = st.columns(len(entity_list) + 2)  # +2 for word column and add button
+                # First row: Controls
+                cols[0].write("")  # Empty space for word column
+                for i, entity in enumerate(entity_list):
+                    col1, col2 = cols[i+1].columns([1, 1])
+                    with col1:
+                        if st.button("✏️", key=f"edit_{idx}_{i}"):
+                            st.session_state.editing_entity = i
                             st.rerun()
-                    
-                    # Matrix content
-                    for word_idx, word in enumerate(words):
-                        cols = st.columns(len(entity_list) + 1)
-                        cols[0].write(word)
-                        for i, entity in enumerate(entity_list):
-                            current_tag = get_tag_for_word(word, entity, st.session_state.current_file, question)
-                            unique_key = f"radio_{word}_{entity}_{st.session_state.current_file}_{question}_{word_idx}_{i}"
-                            selected = cols[i+1].radio(
-                                unique_key,
-                                options=['O', 'B', 'I'],
-                                index=['O', 'B', 'I'].index(current_tag),
-                                key=unique_key,
-                                label_visibility="collapsed"
-                            )
-                            if selected:
-                                update_tag(word, entity, selected, st.session_state.current_file, question)
-                
+                    with col2:
+                        if st.button("❌", key=f"delete_{idx}_{i}"):
+                            entity_list.remove(entity)
+                            update_entities(st.session_state.current_file, idx, entity_list)
+                            st.rerun()
+                # Add new entity button in the last column
+                with cols[-1]:
+                    if st.button("➕", key=f"add_entity_{idx}"):
+                        st.session_state.show_new_entity_input = idx
+                # Second row: Entity names
+                cols[0].write("Word")
+                for i, entity in enumerate(entity_list):
+                    if st.session_state.editing_entity == i:
+                        new_name = cols[i+1].text_input("", value=entity, key=f"edit_entity_{idx}_{i}")
+                        if new_name != entity:
+                            entity_list[i] = new_name
+                            update_entities(st.session_state.current_file, idx, entity_list)
+                            st.session_state.editing_entity = None
+                            st.rerun()
+                    else:
+                        cols[i+1].write(entity)
+                # New entity input row
+                if st.session_state.get('show_new_entity_input') == idx:
+                    new_entity = st.text_input("Enter new entity name:", key=f"new_entity_input_{idx}")
+                    if new_entity and new_entity not in entity_list:
+                        entity_list.append(new_entity)
+                        update_entities(st.session_state.current_file, idx, entity_list)
+                        st.session_state.show_new_entity_input = None
+                        st.rerun()
+                # Matrix content
+                for word_idx, word in enumerate(words):
+                    cols = st.columns(len(entity_list) + 1)
+                    cols[0].write(word)
+                    for i, entity in enumerate(entity_list):
+                        current_tag = get_tag_for_word(word, entity, st.session_state.current_file, question)
+                        unique_key = f"radio_{word}_{entity}_{st.session_state.current_file}_{question}_{word_idx}_{i}"
+                        selected = cols[i+1].radio(
+                            unique_key,
+                            options=['O', 'B', 'I'],
+                            index=['O', 'B', 'I'].index(current_tag),
+                            key=unique_key,
+                            label_visibility="collapsed"
+                        )
+                        if selected:
+                            update_tag(word, entity, selected, st.session_state.current_file, question)
                 st.markdown("---") 
