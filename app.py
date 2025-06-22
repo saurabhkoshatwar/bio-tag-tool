@@ -266,11 +266,20 @@ with st.sidebar:
 if st.session_state.current_file:
     st.header(f"Questions in {st.session_state.current_file}")
     
+    questions = st.session_state.uploaded_files[st.session_state.current_file]
+    questions_per_page = 200
+    total_questions = len(questions)
+    total_pages = (total_questions - 1) // questions_per_page + 1
+    page = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1)
+    start_idx = (page - 1) * questions_per_page
+    end_idx = min(start_idx + questions_per_page, total_questions)
+    
     # Create a container for the scrollable content
     questions_container = st.container()
     
     with questions_container:
-        for idx, question_data in enumerate(st.session_state.uploaded_files[st.session_state.current_file]):
+        for idx in range(start_idx, end_idx):
+            question_data = questions[idx]
             question = question_data['question']
             entities = question_data['entities']
             words, entity_list = create_tagging_matrix(question, entities)
