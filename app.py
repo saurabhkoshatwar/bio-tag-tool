@@ -13,8 +13,14 @@ RESULTS_DIR.mkdir(exist_ok=True)
 def load_tagging_data():
     data_file = DATA_DIR / "tagging_data.json"
     if data_file.exists():
-        with open(data_file, 'r') as f:
-            return json.load(f)
+        try:
+            with open(data_file, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    return {}
+                return json.loads(content)
+        except Exception:
+            return {}
     return {}
 
 def save_tagging_data():
@@ -25,8 +31,14 @@ def save_tagging_data():
 def load_uploaded_files():
     data_file = DATA_DIR / "uploaded_files.json"
     if data_file.exists():
-        with open(data_file, 'r') as f:
-            return json.load(f)
+        try:
+            with open(data_file, 'r') as f:
+                content = f.read().strip()
+                if not content:
+                    return {}
+                return json.loads(content)
+        except Exception:
+            return {}
     return {}
 
 def save_uploaded_files():
@@ -267,12 +279,24 @@ if st.session_state.current_file:
     st.header(f"Questions in {st.session_state.current_file}")
     
     questions = st.session_state.uploaded_files[st.session_state.current_file]
-    questions_per_page = 200
+    questions_per_page = 50
     total_questions = len(questions)
-    total_pages = (total_questions - 1) // questions_per_page + 1
-    page = st.number_input("Page", min_value=1, max_value=total_pages, value=1, step=1)
-    start_idx = (page - 1) * questions_per_page
-    end_idx = min(start_idx + questions_per_page, total_questions)
+    total_pages = (total_questions - 1) // questions_per_page + 1 if total_questions > 0 else 1
+    page_labels = [
+        f"Questions {i*questions_per_page+1}-{min((i+1)*questions_per_page, total_questions)}" 
+        for i in range(total_pages)
+    ]
+    if total_questions > 0:
+        page_options = list(range(1, total_pages+1))
+        page = st.selectbox("Select questions:", options=page_options, format_func=lambda i: page_labels[i-1], index=0)
+        if page is None:
+            page = 1
+        start_idx = int((page - 1) * questions_per_page)
+        end_idx = int(min(start_idx + questions_per_page, total_questions))
+    else:
+        page = 1
+        start_idx = 0
+        end_idx = 0
     
     # Create a container for the scrollable content
     questions_container = st.container()
@@ -369,7 +393,7 @@ if st.session_state.current_file:
                     cols[0].write(word)
                     for i, entity in enumerate(entity_list):
                         current_tag = get_tag_for_word(word, entity, st.session_state.current_file, question)
-                        unique_key = f"radio_{word}_{entity}_{st.session_state.current_file}_{question}_{word_idx}_{i}"
+                        unique_key = f"radio_{idx}_{word_idx}_{i}_{word}_{entity}_{st.session_state.current_file}"
                         selected = cols[i+1].radio(
                             unique_key,
                             options=['O', 'B', 'I'],
